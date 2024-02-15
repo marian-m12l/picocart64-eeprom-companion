@@ -8,7 +8,7 @@
 #include "n64_definitions.h"
 
 
-#define JOYBUS_PIN 5;
+#define JOYBUS_PIN 5
 
 uint8_t mem[2 * 1024];
 
