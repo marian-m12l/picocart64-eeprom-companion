@@ -78,8 +78,7 @@ int main()
 
   stdio_init_all();
 
-  // FIXME support 266 and 133 MHz ???
-  set_sys_clock_khz(130'000, true);
+  set_sys_clock_khz(266'000, true);
   
   memset(mem, 0x0f, sizeof(mem));
 
