@@ -4,7 +4,7 @@
 #include <string.h>
 #include <pico/stdlib.h>
 
-#include "joybus2.h"
+#include "joybus.h"
 
 #define JOYBUS_PIN 5
 

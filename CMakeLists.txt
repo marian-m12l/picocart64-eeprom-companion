@@ -20,7 +20,7 @@ set(PICO_DEFAULT_BINARY_TYPE copy_to_ram)
 
 add_executable(picocart64_eeprom
         eeprom.cpp
-        joybus2.c
+        joybus.c
         )
 
 pico_generate_pio_header(picocart64_eeprom ${CMAKE_CURRENT_LIST_DIR}/joybus_rx.pio)
