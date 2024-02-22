@@ -9,7 +9,7 @@ public write:
     set pindirs 1           ; Set pin to output
 write_loop:
     set pins, 1             ; Set line high for at least 1uS to end pulse
-    pull ifempty block      ; Fetch next byte into OSR if we are done with the current one FIXME needed ??
+    pull ifempty block      ; Fetch next byte into OSR if we are done with the current one
     out x, 1                ; Get bit
     jmp !osre write_bit     ; If we aren't on the 9th bit, just write the bit
     jmp x!=y write_stop_bit ; If we are on the 9th bit and it's a 1 that indicates stop bit so write it
@@ -27,10 +27,8 @@ write_stop_bit:
     nop [T3 - 6]
     set pins, 0 [T1 - 1]
     set pins, 1 [T2 - 2]
-    ; TODO Need to reset pindirs for rx !!!
-    set pindirs 0           ; Set pin to input
-    irq wait 1              ;jmp read    ; FIXME just stall forever ???
-    ;wait 1 irq 7            ;jmp read    ; FIXME just stall forever ???
+    set pindirs 0           ; Done writing, set pin to input
+    irq wait 1
 
 
 % c-sdk {
@@ -42,12 +40,9 @@ static inline pio_sm_config joybus_tx_program_get_config(PIO pio, uint sm, uint 
     pio_sm_config c = joybus_tx_program_get_default_config(offset);
     sm_config_set_out_pins(&c, pin, 1);
     sm_config_set_set_pins(&c, pin, 1);
-    //sm_config_set_in_pins(&c, pin);
     // Shift to left, no autopull, 9 bit
     sm_config_set_out_shift(&c, false, false, 9);
-    // Shift to left, autopush, 8 bit
-    //sm_config_set_in_shift(&c, false, true, 8);
-
+    
     int cycles_per_bit = joybus_tx_T1 + joybus_tx_T2 + joybus_tx_T3;
     int bitrate = 250000;
     float div = clock_get_hz(clk_sys) / (cycles_per_bit * bitrate);
@@ -68,13 +63,6 @@ static inline void joybus_tx_program_send_init(
 ) {
     pio_sm_init(pio, sm, offset, c);
     pio_sm_set_enabled(pio, sm, true);
-}
-
-static inline void joybus_tx_program_pause(
-    PIO pio,
-    uint sm
-) {
-    pio_sm_set_enabled(pio, sm, false);
 }
 
 %}
