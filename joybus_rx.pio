@@ -1,0 +1,143 @@
+.program joybus_rx
+.side_set 1 opt
+
+.define public T1 10
+.define public T2 20
+.define public T3 10
+
+
+;public read:
+;    in pins, 1 [7]
+;    in pins, 1 [7]
+;    in pins, 1 [7]
+;    in pins, 1 [7]
+;    in pins, 1 [7]
+;    in pins, 1 [7]
+;    in pins, 1 [7]
+;    in pins, 1 [7]
+;    push [7]
+;    irq wait 0 [7]
+
+
+; Autopush with 8 bit ISR threshold
+public read:
+    set pindirs 0 side 0                   ; Set pin to input
+    ; TODO use side-set to manage "command code not processed or not" ???
+    set x, 0    ; Read 1 byte
+read_byte_loop:
+    set y, 7    ; Read 8 bits
+read_loop:
+    ;wait 0 pin 0 [T1 + T2 / 2 - 1]  ; Wait for falling edge, then wait until halfway through the 2uS which represents the bit value
+    wait 0 pin 0 [7]  ; Wait for falling edge, then wait until halfway through the 2uS which represents the bit value
+    nop [7]
+    nop [3]     ;nop [5]
+    in pins, 1                      ; Read bit value
+    wait 1 pin 0                    ; Done reading, so make sure we wait for the line to go high again before restarting the loop
+    ; TODO we are either right after the 2us point (if bit is 1) or at 3us (if bit is 0) HOW TO HANDLE RESPONSE DELAY VARIATIONS DEPENDING ON LAST BIT VALUE ???
+    jmp y-- read_loop
+    ; TODO Handle end of command
+    jmp x-- read_byte_loop
+    jmp pin raise_irq
+check_command:
+    ; TODO Raise IRQ when command is complete ? 0x00 is 1 byte, 0x04 is 2 bytes, 0x05 is 10 bytes
+    mov y, isr
+    ; TODO if isr is 0x00, raise irq
+    jmp !y raise_irq
+check_read:
+    push
+    ; TODO if isr is 0x04, read one byte and raise IRQ
+    set x, 4
+    jmp x!=y check_write
+    ; FIXME push command in first word ??
+    ; Here, read 1 byte and raise irq
+    set x, 0 side 1    ; Read 1 byte ; Command code processed
+    jmp read_byte_loop
+check_write:
+    ; TODO if isr is 0x05, read 9 bytes and raise IRQ
+    set x, 5
+    jmp x!=y invalid_command
+    ; FIXME push command in first word ??
+    ; Here, read 9 bytes and raise irq
+    ; FIXME Enable autopush to avoid overflowing ISR when reading more than 4 bytes ???
+    set x, 8 side 1    ; Read 9 bytes ; Command code processed
+    jmp read_byte_loop
+    ; data should be DMA's as soon as pushed into FIFO
+    ; DMA/IRQ handler should clear input buffer when a command is processed
+invalid_command:
+    ; TODO What to do???
+raise_irq:
+    push noblock    ; FIXME SHOULD BLOCK BECAUSE FIFO SHOULD NOT BE FULL !!! push    ; FIXME need to push isr into FIFO??
+    irq wait 0
+    ; FIXME should wait in a loop to be reset for the next read, once the esponse has been sent ???
+endloop:
+    jmp endloop
+
+
+
+% c-sdk {
+#include <hardware/clocks.h>
+
+static inline pio_sm_config joybus_rx_program_get_config(PIO pio, uint sm, uint offset, uint pin) {
+    pio_gpio_init(pio, pin);
+
+    pio_gpio_init(pio, 28); // TODO 31 ????
+    pio_sm_set_consecutive_pindirs(pio, sm, 28, 1, true); 		
+
+    pio_sm_config c = joybus_rx_program_get_default_config(offset);
+    //sm_config_set_out_pins(&c, pin, 1);
+    //sm_config_set_set_pins(&c, pin, 1);
+    sm_config_set_in_pins(&c, pin);
+    sm_config_set_sideset(&c, 2, true, false);  // FIXME NOT needed !!
+    sm_config_set_sideset_pins(&c, 28); //FIXME GPIO31 ??? sm_config_set_sideset_pins(&c, 31); // FIXME unassigned pin ???
+    sm_config_set_jmp_pin(&c, 28);  //FIXME GPIO31 ??? sm_config_set_jmp_pin(&c, 31);
+    // Shift to left, no autopull, 9 bit
+    //sm_config_set_out_shift(&c, false, false, 9);
+    // Shift to left, autopush, 8 bit
+    // FIXME NO AUTOPUSH
+    //sm_config_set_in_shift(&c, false, true, 8);
+    // FIXME ??? sm_config_set_in_shift(&c, false, false, 8);
+    sm_config_set_in_shift(&c, false, true, 32);
+
+    int cycles_per_bit = joybus_rx_T1 + joybus_rx_T2 + joybus_rx_T3;
+    int bitrate = 250000;
+    float div = clock_get_hz(clk_sys) / (cycles_per_bit * bitrate);
+    // FIXME remove
+    //div = div*100000;
+    sm_config_set_clkdiv(&c, div);
+
+    return c;
+}
+
+static inline void joybus_rx_program_receive_init(
+    PIO pio,
+    uint sm,
+    uint offset,
+    uint pin,
+    pio_sm_config *c
+) {
+    pio_sm_init(pio, sm, offset, c);
+
+    // TODO Also reset sideset ??
+    
+    // TODO clear FIFO ??
+    pio_sm_clear_fifos(pio, sm);
+
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+static inline void joybus_rx_program_pause(
+    PIO pio,
+    uint sm
+) {
+    pio_sm_set_enabled(pio, sm, false);
+}
+
+static inline void joybus_rx_program_resume(
+    PIO pio,
+    uint sm
+) {
+    // TODO reset program ???
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+%}

@@ -20,13 +20,11 @@ set(PICO_DEFAULT_BINARY_TYPE copy_to_ram)
 
 add_executable(picocart64_eeprom
         eeprom.cpp
-        joybus-pio/src/joybus.c
-        joybus-pio/src/N64EEPROM.cpp
+        joybus2.c
         )
 
-include_directories(joybus-pio/include)
-
-pico_generate_pio_header(picocart64_eeprom ${CMAKE_CURRENT_LIST_DIR}/joybus-pio/src/joybus.pio)
+pico_generate_pio_header(picocart64_eeprom ${CMAKE_CURRENT_LIST_DIR}/joybus_rx.pio)
+pico_generate_pio_header(picocart64_eeprom ${CMAKE_CURRENT_LIST_DIR}/joybus_tx.pio)
 
 # pull in common dependencies
 target_link_libraries(picocart64_eeprom pico_stdlib hardware_flash hardware_pio)
