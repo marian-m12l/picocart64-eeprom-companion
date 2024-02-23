@@ -19,7 +19,7 @@ add_compile_options(-Wall
 set(PICO_DEFAULT_BINARY_TYPE copy_to_ram)
 
 add_executable(picocart64_eeprom
-        eeprom.cpp
+        eeprom.c
         joybus.c
         )
 

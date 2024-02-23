@@ -20,26 +20,21 @@ volatile uint8_t incoming_length = 0;
 joybus_port_t joybus_rx_port;
 joybus_port_t joybus_tx_port;
 
-enum class N64Command {
-    PROBE = 0x00,
-    RESET = 0xFF,
-    READ_EEPROM = 0x04,
-    WRITE_EEPROM = 0x05,
-};
+#define PROBE 0x00
+#define RESET 0xFF
+#define READ_EEPROM 0x04
+#define WRITE_EEPROM 0x05
 
-enum class N64EEPROMType {
-    EEPROM_4K = 0x8000,
-    EEPROM_16K = 0xC000,
-};
+#define EEPROM_4K 0x8000
+#define EEPROM_16K 0xC000
 
 typedef struct __attribute__((packed)) {
     uint16_t device;
     uint8_t status;
 } n64_status_t;
 
-N64EEPROMType type = N64EEPROMType::EEPROM_16K;
 n64_status_t eeprom_status = (n64_status_t){
-  .device = (uint16_t) type,
+  .device = EEPROM_16K,
   .status = 0x00,
 };
 
@@ -78,7 +73,7 @@ int main()
 
   stdio_init_all();
 
-  set_sys_clock_khz(266'000, true);
+  set_sys_clock_khz(266000, true);
   
   memset(mem, 0x0f, sizeof(mem));
 
@@ -90,15 +85,15 @@ int main()
       if (incoming_length > 0) {
         // Read and handle incoming command
         uint8_t command = incoming[0] & 0xff;
-        switch ((N64Command)command) {
-          case N64Command::RESET:
-          case N64Command::PROBE:
+        switch (command) {
+          case RESET:
+          case PROBE:
             send_response((uint8_t *)&eeprom_status, sizeof(n64_status_t));
             break;
-          case N64Command::READ_EEPROM:
+          case READ_EEPROM:
             send_response(&mem[incoming[1]*8], 8);
             break;
-          case N64Command::WRITE_EEPROM:
+          case WRITE_EEPROM:
             send_response(0, 1);
             uint8_t block = (incoming[1] >> 24);
             uint8_t* address = (uint8_t*)(mem) + block*8;
