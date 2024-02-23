@@ -19,7 +19,6 @@ volatile uint8_t incoming_length = 0;
 // Joybus abstraction
 joybus_port_t joybus_rx_port;
 joybus_port_t joybus_tx_port;
-uint64_t reply_delay = 6;
 
 enum class N64Command {
     PROBE = 0x00,
@@ -44,7 +43,7 @@ n64_status_t eeprom_status = (n64_status_t){
   .status = 0x00,
 };
 
-static void pio_irq_func(void) {
+static void pio_rx_irq_func(void) {
   // Read all incoming words from pio RX FIFO
   incoming_length = 0;
   while (!pio_sm_is_rx_fifo_empty(joybus_rx_port.pio, joybus_rx_port.sm)) {
@@ -53,17 +52,18 @@ static void pio_irq_func(void) {
   pio_interrupt_clear(joybus_rx_port.pio, 0);
 }
 
-void send_response(uint8_t* data, uint8_t length) {
-  busy_wait_us(reply_delay);
-  joybus_port_terminate_rx(&joybus_rx_port);
-  joybus_port_init_tx(&joybus_tx_port, JOYBUS_PIN);
-  joybus_send_bytes(&joybus_tx_port, data, length);
-  while (!pio_interrupt_get(joybus_tx_port.pio, 1)) {
-    tight_loop_contents();
-  }
+static void pio_tx_irq_func(void) {
+  // Done transmitting, switch to rx program
   joybus_port_terminate_tx(&joybus_tx_port);
   pio_interrupt_clear(joybus_tx_port.pio, 1);
-  joybus_port_init_rx(&joybus_rx_port, JOYBUS_PIN, pio_irq_func);
+  joybus_port_init_rx(&joybus_rx_port, JOYBUS_PIN, pio_rx_irq_func);
+}
+
+void send_response(uint8_t* data, uint8_t length) {
+  // Switch to tx program
+  joybus_port_terminate_rx(&joybus_rx_port);
+  joybus_port_init_tx(&joybus_tx_port, JOYBUS_PIN, pio_tx_irq_func);
+  joybus_send_bytes(&joybus_tx_port, data, length);
 }
 
 uint32_t swap32(uint32_t data) {
@@ -82,7 +82,7 @@ int main()
   
   memset(mem, 0x0f, sizeof(mem));
 
-  joybus_port_init_rx(&joybus_rx_port, JOYBUS_PIN, pio_irq_func);
+  joybus_port_init_rx(&joybus_rx_port, JOYBUS_PIN, pio_rx_irq_func);
 
   while (true) {
       tight_loop_contents();

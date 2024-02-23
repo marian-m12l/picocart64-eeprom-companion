@@ -16,15 +16,15 @@ void joybus_port_init_rx(joybus_port_t *port_rx, uint pin, irq_handler_t handler
     port_rx->offset = offset;
     port_rx->config = joybus_rx_program_get_config(pio0, sm, offset, pin);
 
-    // FIXME IRQ depends on port_rx->pio
-    irq_set_exclusive_handler(PIO0_IRQ_0, handler);
-    pio_set_irq0_source_enabled(port_rx->pio, PIO_INTR_SM0_LSB, true);    // FIXME needed ??
-    irq_set_enabled(PIO0_IRQ_0, true);
+    int8_t pio_system_irq_0 = (port_rx->pio == pio0) ? PIO0_IRQ_0 : PIO1_IRQ_0;
+    irq_set_exclusive_handler(pio_system_irq_0, handler);
+    pio_set_irq0_source_enabled(port_rx->pio, PIO_INTR_SM0_LSB, true);  // Route pio IRQ0 to system IRQ "pio 0"
+    irq_set_enabled(pio_system_irq_0, true);
 
     joybus_rx_program_receive_init(port_rx->pio, port_rx->sm, port_rx->offset, port_rx->pin, &port_rx->config);
 }
 
-void joybus_port_init_tx(joybus_port_t *port_tx, uint pin) {
+void joybus_port_init_tx(joybus_port_t *port_tx, uint pin, irq_handler_t handler) {
     int sm = pio_claim_unused_sm(pio0, true);
     int offset = pio_add_program(pio0, &joybus_tx_program);
 
@@ -33,6 +33,11 @@ void joybus_port_init_tx(joybus_port_t *port_tx, uint pin) {
     port_tx->sm = sm;
     port_tx->offset = offset;
     port_tx->config = joybus_tx_program_get_config(pio0, sm, offset, pin);
+
+    int8_t pio_system_irq_1 = (port_tx->pio == pio0) ? PIO0_IRQ_1 : PIO1_IRQ_1;
+    irq_set_exclusive_handler(pio_system_irq_1, handler);
+    pio_set_irq1_source_enabled(port_tx->pio, PIO_INTR_SM1_LSB, true);    // Route pio IRQ1 to system IRQ "pio 1"
+    irq_set_enabled(pio_system_irq_1, true);
 
     joybus_tx_program_send_init(port_tx->pio, port_tx->sm, port_tx->offset, port_tx->pin, &port_tx->config);
 }
