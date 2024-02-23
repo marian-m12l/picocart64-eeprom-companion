@@ -7,14 +7,15 @@
 #include <pico/stdlib.h>
 
 void joybus_port_init_rx(joybus_port_t *port_rx, uint pin, irq_handler_t handler) {
-    int sm = pio_claim_unused_sm(pio0, true);
-    int offset = pio_add_program(pio0, &joybus_rx_program);
+	PIO pio = pio0;
+    int sm = pio_claim_unused_sm(pio, true);
+    int offset = pio_add_program(pio, &joybus_rx_program);
 
     port_rx->pin = pin;
-    port_rx->pio = pio0;
+    port_rx->pio = pio;
     port_rx->sm = sm;
     port_rx->offset = offset;
-    port_rx->config = joybus_rx_program_get_config(pio0, sm, offset, pin);
+    port_rx->config = joybus_rx_program_get_config(pio, sm, offset, pin);
 
     int8_t pio_system_irq_0 = (port_rx->pio == pio0) ? PIO0_IRQ_0 : PIO1_IRQ_0;
     irq_set_exclusive_handler(pio_system_irq_0, handler);
@@ -25,14 +26,15 @@ void joybus_port_init_rx(joybus_port_t *port_rx, uint pin, irq_handler_t handler
 }
 
 void joybus_port_init_tx(joybus_port_t *port_tx, uint pin, irq_handler_t handler) {
-    int sm = pio_claim_unused_sm(pio0, true);
-    int offset = pio_add_program(pio0, &joybus_tx_program);
+	PIO pio = pio0;
+    int sm = pio_claim_unused_sm(pio, true);
+    int offset = pio_add_program(pio, &joybus_tx_program);
 
     port_tx->pin = pin;
-    port_tx->pio = pio0;
+    port_tx->pio = pio;
     port_tx->sm = sm;
     port_tx->offset = offset;
-    port_tx->config = joybus_tx_program_get_config(pio0, sm, offset, pin);
+    port_tx->config = joybus_tx_program_get_config(pio, sm, offset, pin);
 
     int8_t pio_system_irq_1 = (port_tx->pio == pio0) ? PIO0_IRQ_1 : PIO1_IRQ_1;
     irq_set_exclusive_handler(pio_system_irq_1, handler);
@@ -46,13 +48,16 @@ void joybus_port_terminate_rx(joybus_port_t *port_rx) {
     pio_sm_set_enabled(port_rx->pio, port_rx->sm, false);
     pio_sm_unclaim(port_rx->pio, port_rx->sm);
     pio_remove_program(port_rx->pio, &joybus_rx_program, port_rx->offset);
-    irq_remove_handler(PIO0_IRQ_0, irq_get_exclusive_handler(PIO0_IRQ_0));
+    int8_t pio_system_irq_0 = (port_rx->pio == pio0) ? PIO0_IRQ_0 : PIO1_IRQ_0;
+    irq_remove_handler(pio_system_irq_0, irq_get_exclusive_handler(pio_system_irq_0));
 }
 
 void joybus_port_terminate_tx(joybus_port_t *port_tx) {
     pio_sm_set_enabled(port_tx->pio, port_tx->sm, false);
     pio_sm_unclaim(port_tx->pio, port_tx->sm);
     pio_remove_program(port_tx->pio, &joybus_tx_program, port_tx->offset);
+    int8_t pio_system_irq_1 = (port_tx->pio == pio0) ? PIO0_IRQ_1 : PIO1_IRQ_1;
+    irq_remove_handler(pio_system_irq_1, irq_get_exclusive_handler(pio_system_irq_1));
 }
 
 void __no_inline_not_in_flash_func(joybus_send_bytes)(
